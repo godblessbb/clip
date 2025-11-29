@@ -8,8 +8,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-// 加载配置
-$config = require_once 'config.php';
+// 加载配置 - 使用require而不是require_once确保每次都返回配置
+$config = require __DIR__ . '/config.php';
 
 // 确保上传目录存在
 if (!file_exists($config['upload_dir'])) {
