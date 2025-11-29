@@ -303,8 +303,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📋 共享剪贴板</h1>
-            <p>在设备间轻松分享文本内容</p>
+            <h1>📋 共享剪贴板 & 文件同步</h1>
+            <p>在设备间轻松分享文本内容和文件</p>
         </div>
 
         <div class="input-section">
@@ -320,12 +320,45 @@
             </button>
         </div>
 
-        <button class="refresh-btn" onclick="loadClipboardItems()">
-            🔄 刷新内容
-        </button>
+        <div class="input-section">
+            <div class="input-group">
+                <label for="fileInput">上传文件分享</label>
+                <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect(this)">
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                    <button class="publish-btn" onclick="document.getElementById('fileInput').click()" style="padding: 12px 30px;">
+                        📁 选择文件
+                    </button>
+                    <span id="selectedFileName" style="color: #666;"></span>
+                </div>
+                <div id="uploadProgress" style="display: none; margin-top: 10px;">
+                    <div style="background: #e0e6ed; border-radius: 10px; overflow: hidden; height: 30px;">
+                        <div id="progressBar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">
+                            0%
+                        </div>
+                    </div>
+                </div>
+                <div id="folderInfo" style="margin-top: 10px; color: #666; font-size: 0.9rem;"></div>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button class="refresh-btn" onclick="loadClipboardItems()">
+                🔄 刷新文本
+            </button>
+            <button class="refresh-btn" onclick="loadFilesList()" style="background: #17a2b8;">
+                🔄 刷新文件
+            </button>
+        </div>
 
         <div class="clipboard-items" id="clipboardItems">
             <!-- 剪贴板内容将在这里显示 -->
+        </div>
+
+        <div style="margin-top: 40px;">
+            <h2 style="color: white; margin-bottom: 20px;">📁 共享文件</h2>
+            <div class="clipboard-items" id="filesList">
+                <!-- 文件列表将在这里显示 -->
+            </div>
         </div>
     </div>
 
@@ -334,12 +367,15 @@
     <script>
         // API端点
         const API_ENDPOINT = 'api.php';
+        const FILE_API_ENDPOINT = 'file_api.php';
 
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
             loadClipboardItems();
+            loadFilesList();
             // 每30秒自动刷新一次
             setInterval(loadClipboardItems, 30000);
+            setInterval(loadFilesList, 30000);
         });
 
         // 发布文本
@@ -667,10 +703,264 @@
             notification.textContent = message;
             notification.className = `notification ${type}`;
             notification.classList.add('show');
-            
+
             setTimeout(() => {
                 notification.classList.remove('show');
             }, 3000);
+        }
+
+        // ==================== 文件相关功能 ====================
+
+        // 处理文件选择
+        function handleFileSelect(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const fileNameSpan = document.getElementById('selectedFileName');
+            fileNameSpan.textContent = `已选择: ${file.name} (${formatBytes(file.size)})`;
+
+            // 自动上传
+            uploadFile(file);
+        }
+
+        // 上传文件
+        async function uploadFile(file) {
+            const progressDiv = document.getElementById('uploadProgress');
+            const progressBar = document.getElementById('progressBar');
+
+            progressDiv.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressBar.textContent = '0%';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const xhr = new XMLHttpRequest();
+
+                // 监听上传进度
+                xhr.upload.addEventListener('progress', function(e) {
+                    if (e.lengthComputable) {
+                        const percentComplete = Math.round((e.loaded / e.total) * 100);
+                        progressBar.style.width = percentComplete + '%';
+                        progressBar.textContent = percentComplete + '%';
+                    }
+                });
+
+                // 上传完成
+                xhr.addEventListener('load', function() {
+                    if (xhr.status === 200) {
+                        const result = JSON.parse(xhr.responseText);
+                        if (result.success) {
+                            showNotification('文件上传成功！');
+                            document.getElementById('fileInput').value = '';
+                            document.getElementById('selectedFileName').textContent = '';
+                            setTimeout(() => {
+                                progressDiv.style.display = 'none';
+                            }, 1000);
+                            loadFilesList();
+                        } else {
+                            showNotification(result.message || '上传失败', 'error');
+                            progressDiv.style.display = 'none';
+                        }
+                    } else {
+                        showNotification('上传失败，请检查网络连接', 'error');
+                        progressDiv.style.display = 'none';
+                    }
+                });
+
+                // 上传错误
+                xhr.addEventListener('error', function() {
+                    showNotification('上传失败，请检查网络连接', 'error');
+                    progressDiv.style.display = 'none';
+                });
+
+                xhr.open('POST', FILE_API_ENDPOINT);
+                xhr.send(formData);
+
+            } catch (error) {
+                console.error('上传失败:', error);
+                showNotification('上传失败，请检查网络连接', 'error');
+                progressDiv.style.display = 'none';
+            }
+        }
+
+        // 加载文件列表
+        async function loadFilesList() {
+            const filesList = document.getElementById('filesList');
+            const folderInfo = document.getElementById('folderInfo');
+
+            try {
+                const response = await fetch(FILE_API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'list'
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.message || '加载失败');
+                }
+
+                const files = result.data.files || [];
+                const folder = result.data.folderInfo || {};
+
+                // 更新文件夹信息
+                if (folder.currentSizeFormatted) {
+                    folderInfo.innerHTML = `
+                        存储空间使用: ${folder.currentSizeFormatted} / ${folder.maxSizeFormatted} (${folder.usagePercent}%)
+                    `;
+                }
+
+                if (files.length === 0) {
+                    filesList.innerHTML = `
+                        <div class="empty-state">
+                            <h3>还没有分享的文件</h3>
+                            <p>上传第一个文件开始使用吧！</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                filesList.innerHTML = files.map(file => {
+                    const uploadTime = new Date(file.uploadTime);
+                    const timeLeft = getFileTimeLeft(uploadTime);
+
+                    return `
+                        <div class="clipboard-item">
+                            <div class="item-header">
+                                <div style="display: flex; align-items: center;">
+                                    <div class="item-time">
+                                        📅 ${formatDate(uploadTime)}
+                                    </div>
+                                    <div class="countdown">⏰ ${formatTimeLeft(timeLeft)}</div>
+                                </div>
+                                <div class="copy-count">
+                                    已下载 ${file.downloadCount} 次
+                                </div>
+                            </div>
+                            <div class="item-content" style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span style="font-size: 2rem;">${getFileIcon(file.originalName)}</span>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600; color: #333; margin-bottom: 5px;">${escapeHtml(file.originalName)}</div>
+                                        <div style="color: #666; font-size: 0.9rem;">大小: ${file.sizeFormatted}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center; margin-top: 15px;">
+                                <button class="copy-btn" onclick="downloadFile('${file.id}', '${escapeHtml(file.originalName)}')" style="background: #17a2b8;">
+                                    ⬇️ 下载
+                                </button>
+                                <button class="delete-btn" onclick="deleteFile('${file.id}')">
+                                    🗑️ 删除
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('加载失败:', error);
+                filesList.innerHTML = `
+                    <div class="empty-state">
+                        <h3 style="color: #dc3545;">加载失败</h3>
+                        <p style="color: #dc3545;">${error.message}</p>
+                        <button class="refresh-btn" onclick="loadFilesList()" style="margin-top: 20px;">
+                            重试
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        // 下载文件
+        function downloadFile(id, filename) {
+            window.location.href = `${FILE_API_ENDPOINT}?action=download&id=${id}`;
+            showNotification('开始下载文件...');
+
+            // 1秒后刷新列表以更新下载次数
+            setTimeout(() => {
+                loadFilesList();
+            }, 1000);
+        }
+
+        // 删除文件
+        async function deleteFile(id) {
+            if (!confirm('确定要删除这个文件吗？')) return;
+
+            try {
+                const response = await fetch(FILE_API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'delete',
+                        id: id
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    loadFilesList();
+                    showNotification('文件已删除');
+                } else {
+                    showNotification(result.message || '删除失败', 'error');
+                }
+            } catch (error) {
+                console.error('删除失败:', error);
+                showNotification('删除失败，请检查网络连接', 'error');
+            }
+        }
+
+        // 获取文件剩余时间（毫秒）
+        function getFileTimeLeft(uploadTime) {
+            const now = new Date();
+            const uploaded = new Date(uploadTime);
+            const expired = new Date(uploaded.getTime() + 24 * 60 * 60 * 1000);
+            return expired - now;
+        }
+
+        // 格式化字节大小
+        function formatBytes(bytes) {
+            if (bytes >= 1073741824) {
+                return (bytes / 1073741824).toFixed(2) + ' GB';
+            } else if (bytes >= 1048576) {
+                return (bytes / 1048576).toFixed(2) + ' MB';
+            } else if (bytes >= 1024) {
+                return (bytes / 1024).toFixed(2) + ' KB';
+            } else {
+                return bytes + ' B';
+            }
+        }
+
+        // 根据文件名获取图标
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const iconMap = {
+                // 图片
+                'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️', 'bmp': '🖼️', 'svg': '🖼️',
+                // 视频
+                'mp4': '🎬', 'avi': '🎬', 'mkv': '🎬', 'mov': '🎬', 'wmv': '🎬',
+                // 音频
+                'mp3': '🎵', 'wav': '🎵', 'flac': '🎵', 'aac': '🎵', 'm4a': '🎵',
+                // 文档
+                'pdf': '📕', 'doc': '📘', 'docx': '📘', 'txt': '📄', 'rtf': '📄',
+                'xls': '📗', 'xlsx': '📗', 'csv': '📗',
+                'ppt': '📙', 'pptx': '📙',
+                // 压缩文件
+                'zip': '📦', 'rar': '📦', '7z': '📦', 'tar': '📦', 'gz': '📦',
+                // 代码
+                'html': '💻', 'css': '💻', 'js': '💻', 'json': '💻', 'xml': '💻',
+                'py': '🐍', 'java': '☕', 'cpp': '⚙️', 'c': '⚙️', 'php': '🐘',
+            };
+            return iconMap[ext] || '📎';
         }
     </script>
 </body>

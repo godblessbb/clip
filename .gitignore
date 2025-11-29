@@ -1,0 +1,16 @@
+# 上传的文件
+uploads/*
+!uploads/.gitkeep
+
+# 文件元数据
+files_data.json
+
+# 临时文件
+*.tmp
+*.swp
+*.bak
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
