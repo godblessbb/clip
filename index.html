@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>共享剪贴板</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            color: rgba(255,255,255,0.9);
+            font-size: 1.1rem;
+        }
+
+        .input-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+
+        .input-group textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 15px;
+            border: 2px solid #e0e6ed;
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            transition: all 0.3s ease;
+        }
+
+        .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+
+        .publish-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .publish-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+        }
+
+        .publish-btn:active {
+            transform: translateY(0);
+        }
+
+        .publish-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .refresh-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            background: #218838;
+            transform: translateY(-1px);
+        }
+
+        .clipboard-items {
+            display: grid;
+            gap: 20px;
+        }
+
+        .clipboard-item {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .clipboard-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .item-time {
+            color: #666;
+            font-size: 0.9rem;
+            background: #f8f9fa;
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+
+        .copy-count {
+            color: #28a745;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .item-content {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .copy-btn:hover {
+            background: #218838;
+            transform: translateY(-1px);
+        }
+
+        .copy-btn.copied {
+            background: #17a2b8;
+        }
+
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .delete-btn:hover {
+            background: #c82333;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+
+        .empty-state p {
+            font-size: 1.1rem;
+            opacity: 0.7;
+        }
+
+        .countdown {
+            color: #dc3545;
+            font-size: 0.9rem;
+            font-weight: 600;
+            background: rgba(220, 53, 69, 0.1);
+            padding: 4px 8px;
+            border-radius: 12px;
+            margin-left: 10px;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            transform: translateX(400px);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.error {
+            background: #dc3545;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .input-section {
+                padding: 20px;
+                border-radius: 16px;
+            }
+            
+            .clipboard-item {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 共享剪贴板</h1>
+            <p>在设备间轻松分享文本内容</p>
+        </div>
+
+        <div class="input-section">
+            <div class="input-group">
+                <label for="textInput">输入要分享的文本</label>
+                <textarea 
+                    id="textInput" 
+                    placeholder="在这里输入任何文本内容..."
+                ></textarea>
+            </div>
+            <button class="publish-btn" onclick="publishText()" id="publishBtn">
+                📤 发布内容
+            </button>
+        </div>
+
+        <button class="refresh-btn" onclick="loadClipboardItems()">
+            🔄 刷新内容
+        </button>
+
+        <div class="clipboard-items" id="clipboardItems">
+            <!-- 剪贴板内容将在这里显示 -->
+        </div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <script>
+        // API端点
+        const API_ENDPOINT = 'api.php';
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadClipboardItems();
+            // 每30秒自动刷新一次
+            setInterval(loadClipboardItems, 30000);
+        });
+
+        // 发布文本
+        async function publishText() {
+            const textInput = document.getElementById('textInput');
+            const publishBtn = document.getElementById('publishBtn');
+            const text = textInput.value.trim();
+            
+            if (!text) {
+                showNotification('请输入要分享的文本', 'error');
+                return;
+            }
+
+            publishBtn.disabled = true;
+            publishBtn.innerHTML = '<div class="loading"></div> 发布中...';
+
+            try {
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'add',
+                        content: text
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    textInput.value = '';
+                    loadClipboardItems();
+                    showNotification('内容发布成功！');
+                } else {
+                    showNotification(result.message || '发布失败', 'error');
+                }
+            } catch (error) {
+                console.error('发布失败:', error);
+                showNotification('发布失败，请检查网络连接', 'error');
+            } finally {
+                publishBtn.disabled = false;
+                publishBtn.innerHTML = '📤 发布内容';
+            }
+        }
+
+        // 复制文本到剪贴板
+        async function copyText(id, button) {
+            // 先从当前页面找到对应的内容
+            const itemElement = button.closest('.clipboard-item');
+            const contentElement = itemElement.querySelector('.item-content');
+            const textContent = contentElement.textContent;
+
+            try {
+                // 首先尝试复制到剪贴板
+                await navigator.clipboard.writeText(textContent);
+                
+                // 复制成功后，通知服务器更新复制计数
+                try {
+                    const response = await fetch(API_ENDPOINT, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'copy',
+                            id: id
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    if (!result.success) {
+                        console.warn('更新复制计数失败:', result.message);
+                    }
+                } catch (updateError) {
+                    console.warn('更新复制计数失败:', updateError);
+                }
+                
+                // 更新按钮状态
+                button.classList.add('copied');
+                const originalText = button.getAttribute('data-original-text') || button.innerHTML;
+                button.innerHTML = '✅ 已复制';
+                setTimeout(() => {
+                    button.classList.remove('copied');
+                    button.innerHTML = originalText;
+                    loadClipboardItems(); // 重新加载以更新复制次数
+                }, 2000);
+                
+                showNotification('内容已复制到剪贴板');
+                
+            } catch (clipboardError) {
+                console.error('剪贴板复制失败:', clipboardError);
+                
+                // 如果 navigator.clipboard 失败，尝试使用传统方法
+                try {
+                    // 创建临时文本区域
+                    const textArea = document.createElement('textarea');
+                    textArea.value = textContent;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-999999px';
+                    textArea.style.top = '-999999px';
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    
+                    // 尝试执行复制命令
+                    const successful = document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    
+                    if (successful) {
+                        // 通知服务器更新复制计数
+                        try {
+                            const response = await fetch(API_ENDPOINT, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    action: 'copy',
+                                    id: id
+                                })
+                            });
+                        } catch (updateError) {
+                            console.warn('更新复制计数失败:', updateError);
+                        }
+                        
+                        // 更新按钮状态
+                        button.classList.add('copied');
+                        const originalText = button.getAttribute('data-original-text') || button.innerHTML;
+                        button.innerHTML = '✅ 已复制';
+                        setTimeout(() => {
+                            button.classList.remove('copied');
+                            button.innerHTML = originalText;
+                            loadClipboardItems();
+                        }, 2000);
+                        
+                        showNotification('内容已复制到剪贴板');
+                    } else {
+                        throw new Error('execCommand failed');
+                    }
+                } catch (fallbackError) {
+                    console.error('备用复制方法也失败:', fallbackError);
+                    
+                    // 最后的备用方案：显示选中文本让用户手动复制
+                    contentElement.style.backgroundColor = '#e3f2fd';
+                    contentElement.style.userSelect = 'text';
+                    
+                    // 选中文本
+                    const range = document.createRange();
+                    range.selectNodeContents(contentElement);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    
+                    showNotification('自动复制失败，文本已选中，请按 Ctrl+C (或 Cmd+C) 手动复制', 'error');
+                    
+                    // 5秒后恢复样式
+                    setTimeout(() => {
+                        contentElement.style.backgroundColor = '';
+                        contentElement.style.userSelect = '';
+                        selection.removeAllRanges();
+                    }, 5000);
+                }
+            }
+        }
+
+        // 删除项目
+        async function deleteItem(id) {
+            if (!confirm('确定要删除这个内容吗？')) return;
+            
+            try {
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'delete',
+                        id: id
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    loadClipboardItems();
+                    showNotification('内容已删除');
+                } else {
+                    showNotification(result.message || '删除失败', 'error');
+                }
+            } catch (error) {
+                console.error('删除失败:', error);
+                showNotification('删除失败，请检查网络连接', 'error');
+            }
+        }
+
+        // 加载剪贴板项目
+        async function loadClipboardItems() {
+            const clipboardItems = document.getElementById('clipboardItems');
+            
+            try {
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'get'
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.message || '加载失败');
+                }
+
+                const data = result.data || [];
+                
+                if (data.length === 0) {
+                    clipboardItems.innerHTML = `
+                        <div class="empty-state">
+                            <h3>还没有分享的内容</h3>
+                            <p>发布第一个内容开始使用吧！</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                clipboardItems.innerHTML = data.map(item => {
+                    const createdAt = new Date(item.createdAt);
+                    const timeLeft = getTimeLeft(createdAt, item.lastCopied);
+                    
+                    return `
+                        <div class="clipboard-item">
+                            <div class="item-header">
+                                <div style="display: flex; align-items: center;">
+                                    <div class="item-time">
+                                        📅 ${formatDate(createdAt)}
+                                    </div>
+                                    <div class="countdown">⏰ ${formatTimeLeft(timeLeft)}</div>
+                                </div>
+                                <div class="copy-count">
+                                    已复制 ${item.copyCount} 次
+                                </div>
+                            </div>
+                            <div class="item-content">${escapeHtml(item.content)}</div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <button class="copy-btn" onclick="copyText('${item.id}', this)" data-original-text="📋 复制 (${item.copyCount})">
+                                    📋 复制 (${item.copyCount})
+                                </button>
+                                <button class="delete-btn" onclick="deleteItem('${item.id}')">
+                                    🗑️ 删除
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('加载失败:', error);
+                clipboardItems.innerHTML = `
+                    <div class="empty-state">
+                        <h3 style="color: #dc3545;">加载失败</h3>
+                        <p style="color: #dc3545;">${error.message}</p>
+                        <button class="refresh-btn" onclick="loadClipboardItems()" style="margin-top: 20px;">
+                            重试
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        // 获取剩余时间（毫秒）
+        function getTimeLeft(createdAt, lastCopied) {
+            const now = new Date();
+            const created = new Date(createdAt);
+            
+            // 如果有复制记录，从最后复制时间开始计算
+            if (lastCopied) {
+                const lastCopiedTime = new Date(lastCopied);
+                const expired = new Date(lastCopiedTime.getTime() + 24 * 60 * 60 * 1000);
+                return expired - now;
+            } else {
+                // 没有复制记录，从创建时间开始计算
+                const expired = new Date(created.getTime() + 24 * 60 * 60 * 1000);
+                return expired - now;
+            }
+        }
+
+        // 格式化剩余时间
+        function formatTimeLeft(timeLeft) {
+            if (timeLeft <= 0) {
+                return '已过期';
+            }
+            
+            const totalSeconds = Math.floor(timeLeft / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            
+            if (hours > 0) {
+                return `${hours}时${minutes}分${seconds}秒后删除`;
+            } else if (minutes > 0) {
+                return `${minutes}分${seconds}秒后删除`;
+            } else {
+                return `${seconds}秒后删除`;
+            }
+        }
+
+        // 格式化日期
+        function formatDate(date) {
+            return new Date(date).toLocaleString('zh-CN');
+        }
+
+        // HTML转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 显示通知
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
