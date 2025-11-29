@@ -373,16 +373,13 @@
             <p>在设备间轻松分享文本内容和文件</p>
         </div>
 
-        <!-- Tab 切换 -->
+        <!-- Tab 切换 (上传模式) -->
         <div class="tab-container">
-            <button class="tab-btn active" onclick="switchTab('all')" id="tabAll">
-                📋 全部
+            <button class="tab-btn active" onclick="switchUploadMode('text')" id="modeText">
+                📝 粘贴板
             </button>
-            <button class="tab-btn" onclick="switchTab('text')" id="tabText">
-                📝 文本
-            </button>
-            <button class="tab-btn" onclick="switchTab('file')" id="tabFile">
-                📁 文件
+            <button class="tab-btn" onclick="switchUploadMode('file')" id="modeFile">
+                📁 上传文件
             </button>
         </div>
 
@@ -401,7 +398,7 @@
         </div>
 
         <!-- 文件上传区域 -->
-        <div class="input-section upload-section active" id="fileUploadSection">
+        <div class="input-section upload-section" id="fileUploadSection">
             <div class="input-group">
                 <label for="fileInput">上传文件分享</label>
                 <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect(this)">
@@ -422,10 +419,24 @@
             </div>
         </div>
 
-        <!-- 刷新按钮 -->
-        <button class="refresh-btn" onclick="loadAllItems()" style="margin-bottom: 20px;">
-            🔄 刷新内容
-        </button>
+        <!-- 筛选和刷新 -->
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap;">
+            <button class="refresh-btn" onclick="loadAllItems()">
+                🔄 刷新内容
+            </button>
+            <div style="flex: 1;"></div>
+            <div class="tab-container" style="margin: 0; padding: 6px;">
+                <button class="tab-btn active" onclick="setFilter('all')" id="filterAll" style="padding: 8px 16px; font-size: 0.9rem;">
+                    全部
+                </button>
+                <button class="tab-btn" onclick="setFilter('text')" id="filterText" style="padding: 8px 16px; font-size: 0.9rem;">
+                    仅文本
+                </button>
+                <button class="tab-btn" onclick="setFilter('file')" id="filterFile" style="padding: 8px 16px; font-size: 0.9rem;">
+                    仅文件
+                </button>
+            </div>
+        </div>
 
         <!-- 统一内容列表 -->
         <div class="clipboard-items" id="allItems">
@@ -440,8 +451,9 @@
         const API_ENDPOINT = 'api.php';
         const FILE_API_ENDPOINT = 'file_api.php';
 
-        // 当前激活的tab
-        let currentTab = 'all';
+        // 当前上传模式和筛选器
+        let currentUploadMode = 'text'; // 'text' 或 'file'
+        let currentFilter = 'all'; // 'all', 'text', 或 'file'
 
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
@@ -450,28 +462,34 @@
             setInterval(loadAllItems, 30000);
         });
 
-        // Tab切换
-        function switchTab(tab) {
-            currentTab = tab;
+        // 切换上传模式
+        function switchUploadMode(mode) {
+            currentUploadMode = mode;
 
-            // 更新tab按钮状态
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+            // 更新模式按钮状态
+            document.querySelectorAll('#modeText, #modeFile').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('mode' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
 
             // 控制上传区域显示
             const textSection = document.getElementById('textUploadSection');
             const fileSection = document.getElementById('fileUploadSection');
 
-            if (tab === 'all') {
-                textSection.classList.add('active');
-                fileSection.classList.add('active');
-            } else if (tab === 'text') {
+            if (mode === 'text') {
                 textSection.classList.add('active');
                 fileSection.classList.remove('active');
-            } else if (tab === 'file') {
+            } else if (mode === 'file') {
                 textSection.classList.remove('active');
                 fileSection.classList.add('active');
             }
+        }
+
+        // 设置筛选器
+        function setFilter(filter) {
+            currentFilter = filter;
+
+            // 更新筛选按钮状态
+            document.querySelectorAll('#filterAll, #filterText, #filterFile').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('filter' + filter.charAt(0).toUpperCase() + filter.slice(1)).classList.add('active');
 
             // 重新渲染列表
             renderItems();
@@ -763,11 +781,11 @@
             // 合并所有项目
             let items = [];
 
-            if (currentTab === 'all' || currentTab === 'text') {
+            if (currentFilter === 'all' || currentFilter === 'text') {
                 items = items.concat(allTextItems);
             }
 
-            if (currentTab === 'all' || currentTab === 'file') {
+            if (currentFilter === 'all' || currentFilter === 'file') {
                 items = items.concat(allFileItems);
             }
 
@@ -776,8 +794,8 @@
 
             // 如果没有数据
             if (items.length === 0) {
-                const emptyMessage = currentTab === 'text' ? '还没有分享的文本' :
-                                    currentTab === 'file' ? '还没有分享的文件' :
+                const emptyMessage = currentFilter === 'text' ? '还没有分享的文本' :
+                                    currentFilter === 'file' ? '还没有分享的文件' :
                                     '还没有分享的内容';
                 container.innerHTML = `
                     <div class="empty-state">
