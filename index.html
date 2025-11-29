@@ -747,7 +747,17 @@
                     })
                 });
 
+                // 检查HTTP响应状态
+                if (!response.ok) {
+                    console.error('HTTP错误:', response.status, response.statusText);
+                    const text = await response.text();
+                    console.error('响应内容:', text);
+                    allFileItems = [];
+                    return;
+                }
+
                 const result = await response.json();
+                console.log('文件列表响应:', result);
 
                 if (result.success) {
                     allFileItems = (result.data.files || []).map(file => ({
@@ -755,6 +765,8 @@
                         type: 'file',
                         timestamp: new Date(file.uploadTime).getTime()
                     }));
+
+                    console.log('加载了', allFileItems.length, '个文件');
 
                     // 更新文件夹信息
                     const folder = result.data.folderInfo || {};
@@ -769,7 +781,7 @@
                     allFileItems = [];
                 }
             } catch (error) {
-                console.error('加载文件失败:', error);
+                console.error('加载文件失败 (异常):', error);
                 allFileItems = [];
             }
         }
