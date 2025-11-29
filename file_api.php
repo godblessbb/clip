@@ -43,8 +43,15 @@ function getFolderSize($dir) {
     if (!is_dir($dir)) {
         return 0;
     }
-    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)) as $file) {
-        $size += $file->getSize();
+    try {
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)) as $file) {
+            if ($file->isFile()) {
+                $size += $file->getSize();
+            }
+        }
+    } catch (Exception $e) {
+        // 如果目录为空或无法读取，返回0
+        return 0;
     }
     return $size;
 }

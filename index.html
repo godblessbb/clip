@@ -280,22 +280,88 @@
             100% { transform: rotate(360deg); }
         }
 
+        .tab-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 8px;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 50px;
+            background: transparent;
+            color: #666;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn:hover {
+            color: #667eea;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .upload-section {
+            display: none;
+            margin-bottom: 30px;
+        }
+
+        .upload-section.active {
+            display: block;
+        }
+
+        .type-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .badge-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .badge-file {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 0 10px;
             }
-            
+
             .header h1 {
                 font-size: 2rem;
             }
-            
+
             .input-section {
                 padding: 20px;
                 border-radius: 16px;
             }
-            
+
             .clipboard-item {
                 padding: 20px;
+            }
+
+            .tab-btn {
+                padding: 10px 16px;
+                font-size: 0.9rem;
             }
         }
     </style>
@@ -307,20 +373,35 @@
             <p>在设备间轻松分享文本内容和文件</p>
         </div>
 
-        <div class="input-section">
+        <!-- Tab 切换 -->
+        <div class="tab-container">
+            <button class="tab-btn active" onclick="switchTab('all')" id="tabAll">
+                📋 全部
+            </button>
+            <button class="tab-btn" onclick="switchTab('text')" id="tabText">
+                📝 文本
+            </button>
+            <button class="tab-btn" onclick="switchTab('file')" id="tabFile">
+                📁 文件
+            </button>
+        </div>
+
+        <!-- 文本上传区域 -->
+        <div class="input-section upload-section active" id="textUploadSection">
             <div class="input-group">
                 <label for="textInput">输入要分享的文本</label>
-                <textarea 
-                    id="textInput" 
+                <textarea
+                    id="textInput"
                     placeholder="在这里输入任何文本内容..."
                 ></textarea>
             </div>
             <button class="publish-btn" onclick="publishText()" id="publishBtn">
-                📤 发布内容
+                📤 发布文本
             </button>
         </div>
 
-        <div class="input-section">
+        <!-- 文件上传区域 -->
+        <div class="input-section upload-section active" id="fileUploadSection">
             <div class="input-group">
                 <label for="fileInput">上传文件分享</label>
                 <input type="file" id="fileInput" style="display: none;" onchange="handleFileSelect(this)">
@@ -341,24 +422,14 @@
             </div>
         </div>
 
-        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-            <button class="refresh-btn" onclick="loadClipboardItems()">
-                🔄 刷新文本
-            </button>
-            <button class="refresh-btn" onclick="loadFilesList()" style="background: #17a2b8;">
-                🔄 刷新文件
-            </button>
-        </div>
+        <!-- 刷新按钮 -->
+        <button class="refresh-btn" onclick="loadAllItems()" style="margin-bottom: 20px;">
+            🔄 刷新内容
+        </button>
 
-        <div class="clipboard-items" id="clipboardItems">
-            <!-- 剪贴板内容将在这里显示 -->
-        </div>
-
-        <div style="margin-top: 40px;">
-            <h2 style="color: white; margin-bottom: 20px;">📁 共享文件</h2>
-            <div class="clipboard-items" id="filesList">
-                <!-- 文件列表将在这里显示 -->
-            </div>
+        <!-- 统一内容列表 -->
+        <div class="clipboard-items" id="allItems">
+            <!-- 所有内容将在这里显示 -->
         </div>
     </div>
 
@@ -369,14 +440,42 @@
         const API_ENDPOINT = 'api.php';
         const FILE_API_ENDPOINT = 'file_api.php';
 
+        // 当前激活的tab
+        let currentTab = 'all';
+
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
-            loadClipboardItems();
-            loadFilesList();
+            loadAllItems();
             // 每30秒自动刷新一次
-            setInterval(loadClipboardItems, 30000);
-            setInterval(loadFilesList, 30000);
+            setInterval(loadAllItems, 30000);
         });
+
+        // Tab切换
+        function switchTab(tab) {
+            currentTab = tab;
+
+            // 更新tab按钮状态
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+
+            // 控制上传区域显示
+            const textSection = document.getElementById('textUploadSection');
+            const fileSection = document.getElementById('fileUploadSection');
+
+            if (tab === 'all') {
+                textSection.classList.add('active');
+                fileSection.classList.add('active');
+            } else if (tab === 'text') {
+                textSection.classList.add('active');
+                fileSection.classList.remove('active');
+            } else if (tab === 'file') {
+                textSection.classList.remove('active');
+                fileSection.classList.add('active');
+            }
+
+            // 重新渲染列表
+            renderItems();
+        }
 
         // 发布文本
         async function publishText() {
@@ -405,10 +504,10 @@
                 });
 
                 const result = await response.json();
-                
+
                 if (result.success) {
                     textInput.value = '';
-                    loadClipboardItems();
+                    loadAllItems();
                     showNotification('内容发布成功！');
                 } else {
                     showNotification(result.message || '发布失败', 'error');
@@ -461,7 +560,7 @@
                 setTimeout(() => {
                     button.classList.remove('copied');
                     button.innerHTML = originalText;
-                    loadClipboardItems(); // 重新加载以更新复制次数
+                    loadAllItems(); // 重新加载以更新复制次数
                 }, 2000);
                 
                 showNotification('内容已复制到剪贴板');
@@ -509,7 +608,7 @@
                         setTimeout(() => {
                             button.classList.remove('copied');
                             button.innerHTML = originalText;
-                            loadClipboardItems();
+                            loadAllItems();
                         }, 2000);
                         
                         showNotification('内容已复制到剪贴板');
@@ -559,9 +658,9 @@
                 });
 
                 const result = await response.json();
-                
+
                 if (result.success) {
-                    loadClipboardItems();
+                    loadAllItems();
                     showNotification('内容已删除');
                 } else {
                     showNotification(result.message || '删除失败', 'error');
@@ -572,10 +671,22 @@
             }
         }
 
-        // 加载剪贴板项目
-        async function loadClipboardItems() {
-            const clipboardItems = document.getElementById('clipboardItems');
-            
+        // ==================== 统一数据加载和渲染 ====================
+
+        let allTextItems = [];
+        let allFileItems = [];
+
+        // 加载所有数据
+        async function loadAllItems() {
+            await Promise.all([
+                loadTextData(),
+                loadFileData()
+            ]);
+            renderItems();
+        }
+
+        // 加载文本数据
+        async function loadTextData() {
             try {
                 const response = await fetch(API_ENDPOINT, {
                     method: 'POST',
@@ -588,64 +699,175 @@
                 });
 
                 const result = await response.json();
-                
-                if (!result.success) {
-                    throw new Error(result.message || '加载失败');
-                }
 
-                const data = result.data || [];
-                
-                if (data.length === 0) {
-                    clipboardItems.innerHTML = `
-                        <div class="empty-state">
-                            <h3>还没有分享的内容</h3>
-                            <p>发布第一个内容开始使用吧！</p>
-                        </div>
-                    `;
-                    return;
+                if (result.success) {
+                    allTextItems = (result.data || []).map(item => ({
+                        ...item,
+                        type: 'text',
+                        timestamp: new Date(item.createdAt).getTime()
+                    }));
+                } else {
+                    console.error('加载文本失败:', result.message);
+                    allTextItems = [];
                 }
-
-                clipboardItems.innerHTML = data.map(item => {
-                    const createdAt = new Date(item.createdAt);
-                    const timeLeft = getTimeLeft(createdAt, item.lastCopied);
-                    
-                    return `
-                        <div class="clipboard-item">
-                            <div class="item-header">
-                                <div style="display: flex; align-items: center;">
-                                    <div class="item-time">
-                                        📅 ${formatDate(createdAt)}
-                                    </div>
-                                    <div class="countdown">⏰ ${formatTimeLeft(timeLeft)}</div>
-                                </div>
-                                <div class="copy-count">
-                                    已复制 ${item.copyCount} 次
-                                </div>
-                            </div>
-                            <div class="item-content">${escapeHtml(item.content)}</div>
-                            <div style="display: flex; gap: 10px; align-items: center;">
-                                <button class="copy-btn" onclick="copyText('${item.id}', this)" data-original-text="📋 复制 (${item.copyCount})">
-                                    📋 复制 (${item.copyCount})
-                                </button>
-                                <button class="delete-btn" onclick="deleteItem('${item.id}')">
-                                    🗑️ 删除
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
             } catch (error) {
-                console.error('加载失败:', error);
-                clipboardItems.innerHTML = `
+                console.error('加载文本失败:', error);
+                allTextItems = [];
+            }
+        }
+
+        // 加载文件数据
+        async function loadFileData() {
+            try {
+                const response = await fetch(FILE_API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'list'
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    allFileItems = (result.data.files || []).map(file => ({
+                        ...file,
+                        type: 'file',
+                        timestamp: new Date(file.uploadTime).getTime()
+                    }));
+
+                    // 更新文件夹信息
+                    const folder = result.data.folderInfo || {};
+                    const folderInfo = document.getElementById('folderInfo');
+                    if (folder.currentSizeFormatted && folderInfo) {
+                        folderInfo.innerHTML = `
+                            存储空间使用: ${folder.currentSizeFormatted} / ${folder.maxSizeFormatted} (${folder.usagePercent}%)
+                        `;
+                    }
+                } else {
+                    console.error('加载文件失败:', result.message);
+                    allFileItems = [];
+                }
+            } catch (error) {
+                console.error('加载文件失败:', error);
+                allFileItems = [];
+            }
+        }
+
+        // 渲染所有项目
+        function renderItems() {
+            const container = document.getElementById('allItems');
+
+            // 合并所有项目
+            let items = [];
+
+            if (currentTab === 'all' || currentTab === 'text') {
+                items = items.concat(allTextItems);
+            }
+
+            if (currentTab === 'all' || currentTab === 'file') {
+                items = items.concat(allFileItems);
+            }
+
+            // 按时间戳倒序排列
+            items.sort((a, b) => b.timestamp - a.timestamp);
+
+            // 如果没有数据
+            if (items.length === 0) {
+                const emptyMessage = currentTab === 'text' ? '还没有分享的文本' :
+                                    currentTab === 'file' ? '还没有分享的文件' :
+                                    '还没有分享的内容';
+                container.innerHTML = `
                     <div class="empty-state">
-                        <h3 style="color: #dc3545;">加载失败</h3>
-                        <p style="color: #dc3545;">${error.message}</p>
-                        <button class="refresh-btn" onclick="loadClipboardItems()" style="margin-top: 20px;">
-                            重试
-                        </button>
+                        <h3>${emptyMessage}</h3>
+                        <p>开始分享第一个内容吧！</p>
                     </div>
                 `;
+                return;
             }
+
+            // 渲染项目
+            container.innerHTML = items.map(item => {
+                if (item.type === 'text') {
+                    return renderTextItem(item);
+                } else {
+                    return renderFileItem(item);
+                }
+            }).join('');
+        }
+
+        // 渲染文本项目
+        function renderTextItem(item) {
+            const createdAt = new Date(item.createdAt);
+            const timeLeft = getTimeLeft(createdAt, item.lastCopied);
+
+            return `
+                <div class="clipboard-item">
+                    <div class="item-header">
+                        <div style="display: flex; align-items: center;">
+                            <span class="type-badge badge-text">文本</span>
+                            <div class="item-time">
+                                📅 ${formatDate(createdAt)}
+                            </div>
+                            <div class="countdown">⏰ ${formatTimeLeft(timeLeft)}</div>
+                        </div>
+                        <div class="copy-count">
+                            已复制 ${item.copyCount} 次
+                        </div>
+                    </div>
+                    <div class="item-content">${escapeHtml(item.content)}</div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button class="copy-btn" onclick="copyText('${item.id}', this)" data-original-text="📋 复制 (${item.copyCount})">
+                            📋 复制 (${item.copyCount})
+                        </button>
+                        <button class="delete-btn" onclick="deleteItem('${item.id}')">
+                            🗑️ 删除
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 渲染文件项目
+        function renderFileItem(file) {
+            const uploadTime = new Date(file.uploadTime);
+            const timeLeft = getFileTimeLeft(uploadTime);
+
+            return `
+                <div class="clipboard-item">
+                    <div class="item-header">
+                        <div style="display: flex; align-items: center;">
+                            <span class="type-badge badge-file">文件</span>
+                            <div class="item-time">
+                                📅 ${formatDate(uploadTime)}
+                            </div>
+                            <div class="countdown">⏰ ${formatTimeLeft(timeLeft)}</div>
+                        </div>
+                        <div class="copy-count">
+                            已下载 ${file.downloadCount} 次
+                        </div>
+                    </div>
+                    <div class="item-content" style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 2rem;">${getFileIcon(file.originalName)}</span>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; color: #333; margin-bottom: 5px;">${escapeHtml(file.originalName)}</div>
+                                <div style="color: #666; font-size: 0.9rem;">大小: ${file.sizeFormatted}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 15px;">
+                        <button class="copy-btn" onclick="downloadFile('${file.id}', '${escapeHtml(file.originalName)}')" style="background: #17a2b8;">
+                            ⬇️ 下载
+                        </button>
+                        <button class="delete-btn" onclick="deleteFile('${file.id}')">
+                            🗑️ 删除
+                        </button>
+                    </div>
+                </div>
+            `;
         }
 
         // 获取剩余时间（毫秒）
@@ -758,7 +980,7 @@
                             setTimeout(() => {
                                 progressDiv.style.display = 'none';
                             }, 1000);
-                            loadFilesList();
+                            loadAllItems();
                         } else {
                             showNotification(result.message || '上传失败', 'error');
                             progressDiv.style.display = 'none';
@@ -785,99 +1007,6 @@
             }
         }
 
-        // 加载文件列表
-        async function loadFilesList() {
-            const filesList = document.getElementById('filesList');
-            const folderInfo = document.getElementById('folderInfo');
-
-            try {
-                const response = await fetch(FILE_API_ENDPOINT, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'list'
-                    })
-                });
-
-                const result = await response.json();
-
-                if (!result.success) {
-                    throw new Error(result.message || '加载失败');
-                }
-
-                const files = result.data.files || [];
-                const folder = result.data.folderInfo || {};
-
-                // 更新文件夹信息
-                if (folder.currentSizeFormatted) {
-                    folderInfo.innerHTML = `
-                        存储空间使用: ${folder.currentSizeFormatted} / ${folder.maxSizeFormatted} (${folder.usagePercent}%)
-                    `;
-                }
-
-                if (files.length === 0) {
-                    filesList.innerHTML = `
-                        <div class="empty-state">
-                            <h3>还没有分享的文件</h3>
-                            <p>上传第一个文件开始使用吧！</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                filesList.innerHTML = files.map(file => {
-                    const uploadTime = new Date(file.uploadTime);
-                    const timeLeft = getFileTimeLeft(uploadTime);
-
-                    return `
-                        <div class="clipboard-item">
-                            <div class="item-header">
-                                <div style="display: flex; align-items: center;">
-                                    <div class="item-time">
-                                        📅 ${formatDate(uploadTime)}
-                                    </div>
-                                    <div class="countdown">⏰ ${formatTimeLeft(timeLeft)}</div>
-                                </div>
-                                <div class="copy-count">
-                                    已下载 ${file.downloadCount} 次
-                                </div>
-                            </div>
-                            <div class="item-content" style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <span style="font-size: 2rem;">${getFileIcon(file.originalName)}</span>
-                                    <div style="flex: 1;">
-                                        <div style="font-weight: 600; color: #333; margin-bottom: 5px;">${escapeHtml(file.originalName)}</div>
-                                        <div style="color: #666; font-size: 0.9rem;">大小: ${file.sizeFormatted}</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="display: flex; gap: 10px; align-items: center; margin-top: 15px;">
-                                <button class="copy-btn" onclick="downloadFile('${file.id}', '${escapeHtml(file.originalName)}')" style="background: #17a2b8;">
-                                    ⬇️ 下载
-                                </button>
-                                <button class="delete-btn" onclick="deleteFile('${file.id}')">
-                                    🗑️ 删除
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            } catch (error) {
-                console.error('加载失败:', error);
-                filesList.innerHTML = `
-                    <div class="empty-state">
-                        <h3 style="color: #dc3545;">加载失败</h3>
-                        <p style="color: #dc3545;">${error.message}</p>
-                        <button class="refresh-btn" onclick="loadFilesList()" style="margin-top: 20px;">
-                            重试
-                        </button>
-                    </div>
-                `;
-            }
-        }
-
         // 下载文件
         function downloadFile(id, filename) {
             window.location.href = `${FILE_API_ENDPOINT}?action=download&id=${id}`;
@@ -885,7 +1014,7 @@
 
             // 1秒后刷新列表以更新下载次数
             setTimeout(() => {
-                loadFilesList();
+                loadAllItems();
             }, 1000);
         }
 
@@ -908,7 +1037,7 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    loadFilesList();
+                    loadAllItems();
                     showNotification('文件已删除');
                 } else {
                     showNotification(result.message || '删除失败', 'error');
